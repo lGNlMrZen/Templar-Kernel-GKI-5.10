@@ -1,0 +1,92 @@
+name: Build Templar Kernel GKI 5.10
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch kernel source"
+        default: "Templar-LinuxStable"
+      defconfig:
+        description: "Defconfig"
+        default: "gki_defconfig"
+
+env:
+  KERNEL_REPO: https://github.com/Steambot12/Templar-Kernel-GKI-5.10
+  ARCH: arm64
+  # Android 12 / 5.10 GKI memakai clang r416183b
+  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master-kernel-build-2021/clang-r416183b.tar.gz
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 340
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev build-essential \
+            ccache zip git curl lld python3 cpio dwarves \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+
+      - name: Clone kernel source
+        run: |
+          git clone --depth=1 -b "${{ inputs.branch }}" "$KERNEL_REPO" kernel
+
+      - name: Setup clang
+        run: |
+          mkdir -p $HOME/clang
+          curl -sL "$CLANG_URL" | tar -xz -C $HOME/clang
+          echo "$HOME/clang/bin" >> $GITHUB_PATH
+          $HOME/clang/bin/clang --version | head -1
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-gki510-${{ github.run_id }}
+          restore-keys: ccache-gki510-
+
+      - name: Configure
+        working-directory: kernel
+        run: |
+          make O=out ARCH=$ARCH LLVM=1 LLVM_IAS=1 "${{ inputs.defconfig }}"
+          # Matikan opsi GKI yang butuh Bazel/ABI tooling saat build manual
+          scripts/config --file out/.config \
+            -d TRIM_UNUSED_KSYMS \
+            --set-str UNUSED_KSYMS_WHITELIST "" \
+            -d MODULE_SIG_PROTECT
+          make O=out ARCH=$ARCH LLVM=1 LLVM_IAS=1 olddefconfig
+
+      - name: Build
+        working-directory: kernel
+        run: |
+          export CCACHE_DIR=$HOME/.ccache
+          ccache -M 5G
+          make -j$(nproc) O=out ARCH=$ARCH \
+            LLVM=1 LLVM_IAS=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            Image 2>&1 | tee ../build.log
+          ls -lh out/arch/arm64/boot/
+
+      - name: Package AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AK3
+          cp kernel/out/arch/arm64/boot/Image AK3/
+          cd AK3
+          rm -rf .git README.md
+          zip -r9 ../Templar-GKI-5.10-$(date +%Y%m%d).zip *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: templar-kernel
+          path: |
+            Templar-GKI-5.10-*.zip
+            build.log
