@@ -40,8 +40,8 @@ jobs:
       - name: Patch zram shift overflow
         working-directory: kernel
         run: |
-          sed -i 's/~(ZRAM_COMP_PRIORITY_MASK <</~((unsigned long)ZRAM_COMP_PRIORITY_MASK <</' drivers/block/zram/zram_drv.c
-          sed -n 125,130p drivers/block/zram/zram_drv.c
+          sed -i -E 's/\(ZRAM_COMP_PRIORITY_MASK[[:space:]]*<</((unsigned long)ZRAM_COMP_PRIORITY_MASK <</' drivers/block/zram/zram_drv.c
+          grep -n "ZRAM_COMP_PRIORITY_MASK" drivers/block/zram/zram_drv.c
       
       - name: Setup clang
         run: |
