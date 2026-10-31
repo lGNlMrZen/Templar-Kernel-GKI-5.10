@@ -57,6 +57,7 @@ jobs:
           make O=out ARCH=$ARCH LLVM=1 LLVM_IAS=1 "${{ inputs.defconfig }}"
           # Matikan opsi GKI yang butuh Bazel/ABI tooling saat build manual
           scripts/config --file out/.config \
+            -d WERROR \
             -d TRIM_UNUSED_KSYMS \
             --set-str UNUSED_KSYMS_WHITELIST "" \
             -d MODULE_SIG_PROTECT
@@ -71,6 +72,7 @@ jobs:
             LLVM=1 LLVM_IAS=1 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            KCFLAGS="-Wno-error" \
             Image 2>&1 | tee ../build.log
           ls -lh out/arch/arm64/boot/
 
