@@ -11,7 +11,7 @@ on:
         default: "gki_defconfig"
 
 env:
-  KERNEL_REPO: https://github.com/Steambot12/Templar-Kernel-GKI-5.10
+  KERNEL_REPO: https://github.com/lGNlMrZen/Templar-Kernel-GKI-5.10
   ARCH: arm64
   # Android 12 / 5.10 GKI memakai clang r416183b
   CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master-kernel-build-2021/clang-r416183b.tar.gz
